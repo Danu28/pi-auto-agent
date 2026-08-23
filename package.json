@@ -1,0 +1,10 @@
+{
+  "name": "auto-agent",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Pi extension: disciplined Plan -> Tests -> Build -> Verify -> Report loop in one agent run.",
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  }
+}
