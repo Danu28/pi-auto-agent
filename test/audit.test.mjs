@@ -19,16 +19,16 @@ test("B1 fixed: pi.sendUserMessage is not awaited", () => {
 // --- B2 fixed: both sendUserMessage calls pass deliverAs ---
 test("B2 fixed: sendUserMessage passes deliverAs", () => {
   const sendLines = src.split("\n").filter((l) => l.includes("pi.sendUserMessage("));
-  assert.ok(sendLines.length >= 2, "expected at least 2 sendUserMessage calls");
+  assert.ok(sendLines.length >= 1, "expected at least 1 sendUserMessage call with deliverAs");
   for (const l of sendLines) {
     assert.ok(/deliverAs/.test(l), `sendUserMessage call must pass deliverAs: ${l.trim()}`);
   }
 });
 
-// --- B3 fixed: notify reflects best-effort enqueue, not "started" ---
-test("B3 fixed: success notify says 'queued', not 'started'", () => {
+// --- B3 fixed: no misleading 'started'; low-value 'queued' notify removed by improvement ---
+test("B3 fixed: no 'started' notify; low-value 'queued' notify removed", () => {
   assert.ok(!/ctx\.ui\.notify\(`Auto-agent started/.test(src), "must not say 'started' (B3)");
-  assert.ok(/ctx\.ui\.notify\(`Auto-agent queued/.test(src), "should say 'queued' (B3)");
+  assert.ok(!/Auto-agent queued/.test(src), "low-value 'queued' notify removed (improvement)");
 });
 
 // --- B4 fixed: package.json declares dep; Requirements.txt gone/non-empty ---

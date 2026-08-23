@@ -81,6 +81,15 @@ export default function (pi: ExtensionAPI) {
   let runTokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   type UsageLike = { input?: number; output?: number; cacheRead?: number; cacheWrite?: number };
 
+  const startRun = (prompt: string) => {
+    runActive = true;
+    runApiCalls = 0;
+    runTokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+    pi.sendUserMessage(prompt, { deliverAs: "followUp" });
+  };
+
+  pi.on("session_shutdown", () => { runActive = false; });
+
   pi.registerCommand("auto-agent", {
     description: `Plan -> tests-first -> build -> verify loop (max ${MAX_FIX_ROUNDS} fix rounds)`,
     handler: async (args, ctx) => {
@@ -89,25 +98,16 @@ export default function (pi: ExtensionAPI) {
         ctx.ui.notify("Usage: /auto-agent <task description>", "warning");
         return;
       }
-      runActive = true;
-      runApiCalls = 0;
-      runTokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-      pi.sendUserMessage(protocol(task), { deliverAs: "followUp" });
-      ctx.ui.notify(`Auto-agent queued (${task.length} chars)`, "info");
+      startRun(protocol(task));
     },
   });
 
   pi.registerCommand("auto-agent-resume", {
     description: "Continue an interrupted auto-agent run from .auto-agent/plan.md",
-    handler: async (_args, ctx) => {
-      runActive = true;
-      runApiCalls = 0;
-      runTokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-      pi.sendUserMessage(resumePrompt(), { deliverAs: "followUp" });
-    },
+    handler: async () => startRun(resumePrompt()),
   });
 
-  pi.on("turn_end", (event, _ctx) => {
+  pi.on("turn_end", (event) => {
     if (!runActive) return;
     runApiCalls++;
     const u = (event.message as unknown as { usage?: UsageLike }).usage;
@@ -125,7 +125,7 @@ export default function (pi: ExtensionAPI) {
     const t = runTokens;
     const total = t.input + t.output + t.cacheRead + t.cacheWrite;
     ctx.ui.notify(
-      `Auto-agent complete: ${runApiCalls} API call(s), ${total} tokens (in ${t.input} / out ${t.output} / cache-read ${t.cacheRead} / cache-write ${t.cacheWrite})`,
+      `Auto-agent complete: ${runApiCalls} API call(s), ${total} tokens (summed across turns) (in ${t.input} / out ${t.output} / cache-read ${t.cacheRead} / cache-write ${t.cacheWrite})`,
       "info",
     );
   });
