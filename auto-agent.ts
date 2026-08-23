@@ -12,6 +12,7 @@
  *                         no mid-run questions, explicit report format.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { execFileSync } from "node:child_process";
 
 const MAX_FIX_ROUNDS = 3;
 
@@ -75,8 +76,39 @@ function resumePrompt(): string {
 Read \`.auto-agent/plan.md\`. Find the first unchecked task and continue the protocol from there (build remaining tasks, then verify with the Test Plan command, then produce the AUTO-AGENT REPORT exactly as specified in the original protocol). Max ${MAX_FIX_ROUNDS} fix rounds. If plan.md does not exist, reply that there is nothing to resume.`;
 }
 
+function isGitRepo(dir: string): boolean {
+  try {
+    execFileSync("git", ["rev-parse", "--is-inside-work-tree"], {
+      cwd: dir, stdio: ["ignore", "ignore", "ignore"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function buildCommitMessage(task: string): string {
+  const summary = (task.split("\n").map((l) => l.trim()).find(Boolean) ?? "auto-agent task")
+    .replace(/\s+/g, " ")
+    .trim();
+  return `auto-agent: ${summary.slice(0, 72)}`;
+}
+
+function ensureCleanCommit(task: string, dir: string = process.cwd()): void {
+  if (!isGitRepo(dir)) execFileSync("git", ["init"], { cwd: dir, stdio: "ignore" });
+  execFileSync("git", ["add", "-A"], { cwd: dir, stdio: "ignore" });
+  try {
+    execFileSync("git", ["diff", "--cached", "--quiet"], { cwd: dir, stdio: "ignore" });
+    return; // nothing staged -> nothing to commit
+  } catch {
+    // staged changes exist; proceed to commit
+  }
+  execFileSync("git", ["commit", "-m", buildCommitMessage(task)], { cwd: dir, stdio: "ignore" });
+}
+
 export default function (pi: ExtensionAPI) {
   let runActive = false;
+  let currentTask = "";
   let runApiCalls = 0;
   let runTokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   type UsageLike = { input?: number; output?: number; cacheRead?: number; cacheWrite?: number };
@@ -98,6 +130,7 @@ export default function (pi: ExtensionAPI) {
         ctx.ui.notify("Usage: /auto-agent <task description>", "warning");
         return;
       }
+      currentTask = task;
       startRun(protocol(task));
     },
   });
@@ -122,6 +155,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("agent_settled", (_event, ctx) => {
     if (!runActive) return;
     runActive = false;
+    ensureCleanCommit(currentTask);
     const t = runTokens;
     const total = t.input + t.output + t.cacheRead + t.cacheWrite;
     ctx.ui.notify(
