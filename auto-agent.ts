@@ -95,8 +95,8 @@ function buildCommitMessage(task: string): string {
 }
 
 function ensureCleanCommit(task: string, dir: string = process.cwd()): void {
-  if (!isGitRepo(dir)) execFileSync("git", ["init"], { cwd: dir, stdio: "ignore" });
-  execFileSync("git", ["add", "-A"], { cwd: dir, stdio: "ignore" });
+  if (!isGitRepo(dir)) return; // never auto-init; skip silently when not a repo
+  execFileSync("git", ["add", "-u"], { cwd: dir, stdio: "ignore" }); // tracked changes only
   try {
     execFileSync("git", ["diff", "--cached", "--quiet"], { cwd: dir, stdio: "ignore" });
     return; // nothing staged -> nothing to commit
@@ -109,6 +109,7 @@ function ensureCleanCommit(task: string, dir: string = process.cwd()): void {
 export default function (pi: ExtensionAPI) {
   let runActive = false;
   let currentTask = "";
+  let commitEnabled = false;
   let runApiCalls = 0;
   let runTokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   type UsageLike = { input?: number; output?: number; cacheRead?: number; cacheWrite?: number };
@@ -123,11 +124,16 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_shutdown", () => { runActive = false; });
 
   pi.registerCommand("auto-agent", {
-    description: `Plan -> tests-first -> build -> verify loop (max ${MAX_FIX_ROUNDS} fix rounds)`,
+    description: `Plan -> tests-first -> build -> verify loop (max ${MAX_FIX_ROUNDS} fix rounds; --commit auto-commits)`,
     handler: async (args, ctx) => {
-      const task = args.trim();
+      if (!args.trim()) {
+        ctx.ui.notify("Usage: /auto-agent <task> [--commit]", "warning");
+        return;
+      }
+      commitEnabled = /(^|\s)--commit(\s|$)/.test(args);
+      const task = args.trim().replace(/(^|\s)--commit(?=\s|$)/g, " ").trim();
       if (!task) {
-        ctx.ui.notify("Usage: /auto-agent <task description>", "warning");
+        ctx.ui.notify("Usage: /auto-agent <task> [--commit]", "warning");
         return;
       }
       currentTask = task;
@@ -155,7 +161,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("agent_settled", (_event, ctx) => {
     if (!runActive) return;
     runActive = false;
-    ensureCleanCommit(currentTask);
+    if (commitEnabled) ensureCleanCommit(currentTask);
     const t = runTokens;
     const total = t.input + t.output + t.cacheRead + t.cacheWrite;
     ctx.ui.notify(

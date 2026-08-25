@@ -16,9 +16,15 @@ Then in pi: `/reload`.
 ## Usage
 
 ```
-/auto-agent <task>        # full run
+/auto-agent <task>        # full run (report-only; no git mutation)
+/auto-agent <task> --commit  # also commit tracked changes on completion
 /auto-agent-resume        # continue an interrupted run from .auto-agent/plan.md
 ```
+
+Commit behavior is **opt-in**: by default the extension never touches git. Pass
+`--commit` to stage *tracked* changes only (`git add -u`) and commit them on run
+completion — it never runs `git add -A` and never auto-initializes a repo (if the
+current directory isn't a git repo, the commit is skipped silently).
 
 When a run completes, the extension notifies you with the **number of API calls**
 made and the **total token usage** for that task (input / output / cache-read /
@@ -67,5 +73,5 @@ Edit `MAX_FIX_ROUNDS` at the top of `auto-agent.ts` to change the fix-loop budge
 
 ```bash
 npm install    # provides @earendil-works/pi-coding-agent types for editing
-node --test    # runs the audit + feature + repo checks
+node --test    # static source checks (audit/feature/improve/commit-scope) + repo checks; no runtime execution
 ```

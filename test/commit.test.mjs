@@ -14,14 +14,15 @@ test("COMMIT AC1: checks current folder is a valid git repo", () => {
   assert.ok(/--is-inside-work-tree/.test(src), "must use --is-inside-work-tree guard");
 });
 
-// AC2: source runs git init if not a repo.
-test("COMMIT AC2: runs git init when not a repo", () => {
-  assert.ok(/"init"\]/.test(src), "must run git init as fallback when not a repo");
+// AC2: never auto-inits; commit is skipped silently when not a repo.
+test("COMMIT AC2: never auto-inits; skips silently when not a repo", () => {
+  assert.ok(/if\s*\(!isGitRepo\(dir\)\)\s*return/.test(src), "must skip commit when not a repo");
+  assert.ok(!/"init"\]/.test(src), "must not run git init");
 });
 
-// AC3: source stages changes and creates a commit.
-test("COMMIT AC3: git add -A then git commit -m", () => {
-  assert.ok(/"add",\s*"-A"/.test(src), "must stage with git add -A");
+// AC3: source stages tracked changes only and creates a commit.
+test("COMMIT AC3: git add -u then git commit -m", () => {
+  assert.ok(/"add",\s*"-u"/.test(src), "must stage tracked changes with git add -u");
   assert.ok(/"commit",\s*"-m"/.test(src), "must create commit with git commit -m");
 });
 
