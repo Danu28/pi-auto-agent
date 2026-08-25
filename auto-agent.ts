@@ -118,6 +118,9 @@ export default function (pi: ExtensionAPI) {
     runActive = true;
     runApiCalls = 0;
     runTokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+    // Runs never inherit state from a previous run; opt-in flags are set per run.
+    commitEnabled = false;
+    currentTask = "";
     pi.sendUserMessage(prompt, { deliverAs: "followUp" });
   };
 
@@ -130,14 +133,14 @@ export default function (pi: ExtensionAPI) {
         ctx.ui.notify("Usage: /auto-agent <task> [--commit]", "warning");
         return;
       }
-      commitEnabled = /(^|\s)--commit(\s|$)/.test(args);
       const task = args.trim().replace(/(^|\s)--commit(?=\s|$)/g, " ").trim();
       if (!task) {
         ctx.ui.notify("Usage: /auto-agent <task> [--commit]", "warning");
         return;
       }
+      startRun(protocol(task)); // resets commitEnabled/currentTask first
+      commitEnabled = /(^|\s)--commit(\s|$)/.test(args);
       currentTask = task;
-      startRun(protocol(task));
     },
   });
 
