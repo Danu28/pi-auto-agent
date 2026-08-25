@@ -13,8 +13,26 @@
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 const MAX_FIX_ROUNDS = 3;
+
+const GITIGNORE_ENTRY = ".auto-agent/";
+
+/**
+ * Ensure `.auto-agent/` is ignored in the given git repo so auto-agent's working
+ * state (plan.md etc.) is never committed. Idempotent; no-op outside a git repo.
+ * ponytail: rewrites the whole file only when missing — small, fine for .gitignore.
+ */
+export function ensureGitignore(dir: string = process.cwd()): void {
+  if (!isGitRepo(dir)) return;
+  const path = join(dir, ".gitignore");
+  const existing = existsSync(path) ? readFileSync(path, "utf8") : "";
+  if (existing.split(/\r?\n/).some((l) => l.trim() === GITIGNORE_ENTRY)) return;
+  const sep = existing === "" || existing.endsWith("\n") ? "" : "\n";
+  writeFileSync(path, existing + sep + GITIGNORE_ENTRY + "\n");
+}
 
 function protocol(task: string): string {
   return `# AUTO-AGENT RUN
@@ -115,6 +133,7 @@ export default function (pi: ExtensionAPI) {
   let runTokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
 
   const startRun = (prompt: string) => {
+    ensureGitignore(); // guarantee .auto-agent/ is ignored wherever we run
     runActive = true;
     runApiCalls = 0;
     runTokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
