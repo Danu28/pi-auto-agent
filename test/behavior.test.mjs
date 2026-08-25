@@ -44,7 +44,9 @@ test("BB4: completion notify reports API call count and tokens", () => {
   e.commands["auto-agent"].handler("task", e.ctx);
   e.handlers.turn_end({ message: { usage: { input: 5, output: 3, cacheRead: 0, cacheWrite: 0 } } }, e.ctx);
   e.handlers.agent_settled({}, e.ctx);
-  assert.ok(e.notifies.some((n) => n.msg.includes("API call") && n.msg.includes("tokens")));
+  const done = e.notifies.find((n) => n.msg.includes("Auto-agent complete"));
+  assert.ok(done && /API call/.test(done.msg) && /tokens/.test(done.msg), "completion names API calls + tokens");
+  assert.ok(/summed across turns/.test(done.msg), "token label must say 'summed across turns' (IMP AC1)");
 });
 
 // B3: no misleading 'started'/'queued' notify; only the completion notify fires.
