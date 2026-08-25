@@ -16,9 +16,11 @@ Then in pi: `/reload`.
 ## Usage
 
 ```
-/auto-agent <task>        # full run (report-only; no git mutation)
+/auto-agent <task>           # full run (report-only; no git mutation)
 /auto-agent <task> --commit  # also commit tracked changes on completion
-/auto-agent-resume        # continue an interrupted run from .auto-agent/plan.md
+/auto-agent-commit <task>    # like /auto-agent, but auto-commits by default
+/auto-agent-commit <task> --no-commit  # commit by default, but skip for this run
+/auto-agent-resume           # continue an interrupted run from .auto-agent/plan.md
 ```
 
 Commit behavior is **opt-in**: by default the extension never touches git. Pass

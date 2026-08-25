@@ -79,3 +79,22 @@ test("AC2 (F1 regression): resume after a --commit run must NOT commit", () => {
     assert.equal(commitCount(repo), 2, "resume must not commit (F1)");
   });
 });
+
+test("AC4: auto-agent-commit creates a commit by default (no --commit flag needed)", () => {
+  withTempRepo((repo) => {
+    const ext = makeExtension();
+    ext.commands["auto-agent-commit"].handler("task B", ext.ctx);
+    ext.handlers.agent_settled({}, ext.ctx);
+    assert.equal(commitCount(repo), 2, "default-on commit happened");
+    assert.equal(lastMessage(repo), "auto-agent: task B");
+  });
+});
+
+test("AC5: auto-agent-commit --no-commit creates no commit", () => {
+  withTempRepo((repo) => {
+    const ext = makeExtension();
+    ext.commands["auto-agent-commit"].handler("task C --no-commit", ext.ctx);
+    ext.handlers.agent_settled({}, ext.ctx);
+    assert.equal(commitCount(repo), 1, "base commit only (--no-commit honored)");
+  });
+});

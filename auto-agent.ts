@@ -126,22 +126,34 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("session_shutdown", () => { runActive = false; });
 
+  const runAutoAgent = (args, ctx, commitByDefault) => {
+    const cmd = commitByDefault ? "auto-agent-commit" : "auto-agent";
+    if (!args.trim()) {
+      ctx.ui.notify(`Usage: /${cmd} <task> [${commitByDefault ? "--no-commit" : "--commit"}]`, "warning");
+      return;
+    }
+    const task = args.trim()
+      .replace(/(^|\s)--commit(?=\s|$)/g, " ")
+      .replace(/(^|\s)--no-commit(?=\s|$)/g, " ")
+      .trim();
+    if (!task) {
+      ctx.ui.notify(`Usage: /${cmd} <task>`, "warning");
+      return;
+    }
+    startRun(protocol(task)); // resets commitEnabled/currentTask first
+    const noCommit = /(^|\s)--no-commit(\s|$)/.test(args);
+    commitEnabled = commitByDefault ? !noCommit : /(^|\s)--commit(\s|$)/.test(args);
+    currentTask = task;
+  };
+
   pi.registerCommand("auto-agent", {
     description: `Plan -> tests-first -> build -> verify loop (max ${MAX_FIX_ROUNDS} fix rounds; --commit auto-commits)`,
-    handler: async (args, ctx) => {
-      if (!args.trim()) {
-        ctx.ui.notify("Usage: /auto-agent <task> [--commit]", "warning");
-        return;
-      }
-      const task = args.trim().replace(/(^|\s)--commit(?=\s|$)/g, " ").trim();
-      if (!task) {
-        ctx.ui.notify("Usage: /auto-agent <task> [--commit]", "warning");
-        return;
-      }
-      startRun(protocol(task)); // resets commitEnabled/currentTask first
-      commitEnabled = /(^|\s)--commit(\s|$)/.test(args);
-      currentTask = task;
-    },
+    handler: (args, ctx) => runAutoAgent(args, ctx, false),
+  });
+
+  pi.registerCommand("auto-agent-commit", {
+    description: `Like /auto-agent but auto-commits tracked changes on completion by default (pass --no-commit to disable for one run)`,
+    handler: (args, ctx) => runAutoAgent(args, ctx, true),
   });
 
   pi.registerCommand("auto-agent-resume", {
