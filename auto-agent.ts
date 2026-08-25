@@ -25,29 +25,29 @@ Execute the following task using this exact protocol. Do not skip phases. Do not
 ${task}
 
 ## PHASE 1 — RESTATE (no tools, think inline)
-Open your response by restating the problem in 2-4 sentences: what is being built, for whom, and what "done" means. If the request is ambiguous, choose the most reasonable interpretation and say so explicitly.
+Open your response by restating the problem in 2-4 sentences: what is built, for whom, and the **single observable signal** that proves it is done (e.g. "CLI exits 0 and prints X", "test file Y is green"). If the request is ambiguous, choose the most reasonable interpretation and say so explicitly.
 
 ## PHASE 2 — PLAN (write once, reuse forever)
 Create \`.auto-agent/plan.md\` containing:
 1. **Problem Statement** — your Phase-1 restatement.
 2. **Assumptions** — every ambiguity you resolved.
-3. **Acceptance Criteria** — numbered, measurable, verifiable statements ("tests pass", "CLI prints X"). These define DONE. Nothing outside them may be built.
-4. **Task List** — ordered checkbox items (\`- [ ]\`), each small enough for one edit-and-test cycle.
+3. **Acceptance Criteria** — numbered. Each must be verifiable from **observable output alone** (test result, CLI stdout, file content) *without* reading implementation. "Code is correct" is not a criterion. These define DONE. Nothing outside them may be built. If the requirement is already satisfied, write that in Assumptions and stop — do not invent work.
+4. **Task List** — one checkbox per **one-file / one-function** change, each independently verifiable by the Test Plan command.
 5. **Test Plan** — the exact command that runs the tests (e.g. \`node --test\`, \`pytest\`), and which test files prove which acceptance criteria.
 
 ## PHASE 3 — TESTS FIRST
-Before writing implementation code, write the tests from the Test Plan. Run them once to confirm they FAIL for the right reason.
+Write **test files only** — do not edit source this phase. Author one failing test per acceptance criterion. Run the Test Plan command and **paste the failure output** into plan.md under a "Failing proof" heading. Proceed only once every new test fails for the asserted reason.
 
 ## PHASE 4 — BUILD
-Work through the Task List top to bottom. After completing each item:
+Work through the Task List top to bottom. **Smallest change that satisfies the criterion wins** — no extras. After completing each item:
 - tick its checkbox in \`.auto-agent/plan.md\`
-- move to the next item
-Do not refactor beyond scope. Do not add features not covered by acceptance criteria.
+- run the Test Plan command; if the suite is red, fix before moving on — do not accumulate failures to "verify later"
+Do not rename, restructure, or "clean up" code not touched by the current task. Do not add features not covered by acceptance criteria.
 
 ## PHASE 5 — VERIFY (the loop)
-Run the full test command. Then:
-- ALL PASS -> go to Phase 6.
-- Failures -> fix and re-run. Repeat at most ${MAX_FIX_ROUNDS} rounds.
+Run the full Test Plan command. A criterion counts **met only if its test is green AND \`git diff\` shows the intended behavior** — a green suite from an unrelated change is not PASS. Run \`git diff --stat\`; every changed line must map to a task or criterion. No stray debug code, no commented-out tests. Then:
+- ALL PASS and diff is clean -> go to Phase 6.
+- Failures or stray changes -> fix and re-run. Repeat at most ${MAX_FIX_ROUNDS} rounds; each round must change something **concrete and different** from the last — do not revert-and-retry the same edit.
 - Still failing after ${MAX_FIX_ROUNDS} rounds -> STOP. Do not fake success. Report exactly what fails and why in Phase 6.
 If at any point you lose track of where you are, RE-READ \`.auto-agent/plan.md\` — the file is the source of truth, not your memory of this conversation.
 
@@ -59,10 +59,11 @@ Result: SUCCESS | FAILED | PARTIAL
 Acceptance criteria: <n>/<m> met (list any unmet ones)
 Tests: <passed> passed, <failed> failed (<test command used>)
 Fix rounds used: <k>/${MAX_FIX_ROUNDS}
-Files changed: <list>
+Files changed: <git diff --stat output>
 Assumptions made: <list or "none">
 Next steps: <only if FAILED/PARTIAL>
 \`\`\`
+Result is **SUCCESS only if** every criterion's test is green, the diff maps to tasks, and no stray changes exist; otherwise FAILED or PARTIAL. Under PARTIAL, enumerate met vs unmet. Never claim a result you cannot point to evidence for.
 
 RULES (apply everywhere):
 - Zero questions. Assumptions go into plan.md.

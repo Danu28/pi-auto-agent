@@ -34,3 +34,14 @@ test("B4: Requirements.txt removed or populated", () => {
   const populated = existsSync(reqPath) && readFileSync(reqPath, "utf8").trim() !== "";
   assert.ok(gone || populated, "Requirements.txt must be removed or non-empty (B4)");
 });
+
+// Phase-sharpening guards: lock in the quality gates added to protocol(). These are
+// source-text checks (same style as B1/B4) — the protocol is a string template, so the
+// cheapest durable guard is asserting the key phrases are present.
+test("phase sharpening: observable-signal restate + evidence-backed verify/report", () => {
+  assert.ok(/single observable signal/.test(src), "Phase 1 must pin an observable done-signal");
+  assert.ok(/observable output alone/.test(src), "Phase 2 criteria must be verifiable from output alone");
+  assert.ok(/Failing proof/.test(src), "Phase 3 must capture failing-test proof");
+  assert.ok(/git diff/.test(src), "Phase 5 must inspect the actual diff");
+  assert.ok(/point to evidence for/.test(src), "Phase 6 must require evidence-backed result");
+});
