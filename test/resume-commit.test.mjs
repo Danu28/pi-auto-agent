@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
-import autoAgent from "../auto-agent.ts";
+import { makeExtension } from "./helpers.mjs";
 
 // Behavioral tests for the commit opt-in contract (audit finding F1).
 // Real git, but confined to throwaway temp repos — the project repo is never touched.
@@ -33,17 +33,6 @@ function commitCount(dir) {
 
 function lastMessage(dir) {
   return git(dir, "log", "-1", "--format=%s");
-}
-
-function makeExtension() {
-  const handlers = {};
-  const commands = {};
-  autoAgent({
-    on: (event, handler) => { handlers[event] = handler; },
-    registerCommand: (name, opts) => { commands[name] = opts; },
-    sendUserMessage: () => {},
-  });
-  return { handlers, commands, ctx: { ui: { notify() {} } } };
 }
 
 function withTempRepo(fn) {

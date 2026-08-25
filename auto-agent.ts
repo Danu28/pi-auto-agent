@@ -112,7 +112,6 @@ export default function (pi: ExtensionAPI) {
   let commitEnabled = false;
   let runApiCalls = 0;
   let runTokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-  type UsageLike = { input?: number; output?: number; cacheRead?: number; cacheWrite?: number };
 
   const startRun = (prompt: string) => {
     runActive = true;
@@ -152,7 +151,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("turn_end", (event) => {
     if (!runActive) return;
     runApiCalls++;
-    const u = (event.message as unknown as { usage?: UsageLike }).usage;
+    const u = event.message.usage;
     if (u) {
       runTokens.input += u.input ?? 0;
       runTokens.output += u.output ?? 0;
