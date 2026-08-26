@@ -23,6 +23,10 @@ Then in pi: `/reload`.
 /auto-agent-resume           # continue an interrupted run from .auto-agent/plan.md
 ```
 
+Agent-generated acceptance tests are written to `tests/generated/` (named
+`*.test.mjs` so the standard `node --test` runner discovers them) and are staged by
+the auto-commit alongside tracked changes — a scoped add, never `git add -A`.
+
 Commit behavior is **opt-in**: by default the extension never touches git. Pass
 `--commit` to stage *tracked* changes only (`git add -u`) and commit them on run
 completion — it never runs `git add -A` and never auto-initializes a repo (if the

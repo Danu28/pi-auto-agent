@@ -61,7 +61,8 @@ Create \`.auto-agent/plan.md\` containing:
 5. **Test Plan** — the exact command that runs the tests (e.g. \`node --test\`, \`pytest\`), and which test files prove which acceptance criteria.
 
 ## PHASE 3 — TESTS FIRST
-Write **test files only** — do not edit source this phase. Author one failing test per acceptance criterion. Run the Test Plan command and **paste the failure output** into plan.md under a "Failing proof" heading. Proceed only once every new test fails for the asserted reason.
+Write **test files only** — do not edit source this phase. Author one failing test per acceptance criterion.
+Write each new test file under \`tests/generated/\` (create the directory if needed), named \`*.test.mjs\` so the standard \`node --test\` runner discovers it. These tests are durable proof — they are committed with the run, not scratch. Run the Test Plan command and **paste the failure output** into plan.md under a "Failing proof" heading. Proceed only once every new test fails for the asserted reason.
 
 ## PHASE 4 — BUILD
 Work through the Task List top to bottom. **Smallest change that satisfies the criterion wins** — no extras. After completing each item:
@@ -125,6 +126,10 @@ function buildCommitMessage(task: string): string {
 function ensureCleanCommit(task: string, dir: string = process.cwd()): void {
   if (!isGitRepo(dir)) return; // never auto-init; skip silently when not a repo
   execFileSync("git", ["add", "-u"], { cwd: dir, stdio: "ignore" }); // tracked changes only
+  // Also stage the run's own generated acceptance tests (named-path add; never git add -A).
+  if (existsSync(join(dir, "tests", "generated"))) {
+    execFileSync("git", ["add", "--", "tests/generated"], { cwd: dir, stdio: "ignore" });
+  }
   try {
     execFileSync("git", ["diff", "--cached", "--quiet"], { cwd: dir, stdio: "ignore" });
     return; // nothing staged -> nothing to commit

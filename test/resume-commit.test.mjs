@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -96,5 +96,20 @@ test("AC5: auto-agent-commit --no-commit creates no commit", () => {
     ext.commands["auto-agent-commit"].handler("task C --no-commit", ext.ctx);
     ext.handlers.agent_settled({}, ext.ctx);
     assert.equal(commitCount(repo), 1, "base commit only (--no-commit honored)");
+  });
+});
+
+
+// Generated acceptance tests (tests/generated/) are staged and committed by --commit.
+test("AC6: --commit stages and commits tests/generated/ (named-path add, never -A)", () => {
+  withTempRepo((repo) => {
+    const genDir = join(repo, "tests", "generated");
+    mkdirSync(genDir, { recursive: true });
+    writeFileSync(join(genDir, "foo.test.mjs"), "process.exit(0)");
+    const ext = makeExtension();
+    ext.commands["auto-agent"].handler("task G --commit", ext.ctx);
+    ext.handlers.agent_settled({}, ext.ctx);
+    const files = git(repo, "ls-files");
+    assert.ok(files.includes("tests/generated/foo.test.mjs"), "generated test must be committed");
   });
 });
