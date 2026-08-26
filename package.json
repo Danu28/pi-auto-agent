@@ -5,6 +5,7 @@
   "private": true,
   "description": "Pi extension: disciplined Plan -> Tests -> Build -> Verify -> Report loop in one agent run.",
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "*"
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "^1.3.19"
   }
 }
