@@ -100,16 +100,23 @@ test("AC5: auto-agent-commit --no-commit creates no commit", () => {
 });
 
 
-// Generated acceptance tests (tests/generated/) are staged and committed by --commit.
-test("AC6: --commit stages and commits tests/generated/ (named-path add, never -A)", () => {
+// Auto-commit stages EVERY file the run created (any path), never files that were
+// already untracked when the run started, and never git add -A.
+test("AC6: --commit stages run-created files (incl. outside tests/generated), never pre-existing untracked", () => {
   withTempRepo((repo) => {
+    writeFileSync(join(repo, "user-note.txt"), "mine"); // present at run start
+    const ext = makeExtension();
+    ext.commands["auto-agent"].handler("task G --commit", ext.ctx); // run starts -> snapshot
+    // Files created DURING the run, before it settles:
     const genDir = join(repo, "tests", "generated");
     mkdirSync(genDir, { recursive: true });
     writeFileSync(join(genDir, "foo.test.mjs"), "process.exit(0)");
-    const ext = makeExtension();
-    ext.commands["auto-agent"].handler("task G --commit", ext.ctx);
+    mkdirSync(join(repo, "lib"), { recursive: true });
+    writeFileSync(join(repo, "lib", "helper.ts"), "export const x = 1;");
     ext.handlers.agent_settled({}, ext.ctx);
     const files = git(repo, "ls-files");
     assert.ok(files.includes("tests/generated/foo.test.mjs"), "generated test must be committed");
+    assert.ok(files.includes("lib/helper.ts"), "run-created file outside tests/generated must be committed");
+    assert.ok(!files.includes("user-note.txt"), "pre-existing untracked file must NOT be committed");
   });
 });

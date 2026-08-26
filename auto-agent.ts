@@ -123,12 +123,31 @@ function buildCommitMessage(task: string): string {
   return `auto-agent: ${summary.slice(0, 72)}`;
 }
 
-function ensureCleanCommit(task: string, dir: string = process.cwd()): void {
+// Untracked, non-ignored files present in the repo right now (git ls-files
+// respects .gitignore, so node_modules/.auto-agent/ etc. never appear).
+function untrackedFiles(dir: string): Set<string> {
+  if (!isGitRepo(dir)) return new Set();
+  try {
+    const out = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], {
+      cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"],
+    });
+    return new Set(out.split(/\r?\n/).filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
+// Stage everything the CURRENT run changed: tracked changes (add -u) plus every
+// file created during the run (any path — tests/generated, sources, skills).
+// Files already untracked when the run started are never touched, and git add -A
+// is never used, so the commit can never sweep the user's unrelated files.
+function ensureCleanCommit(task: string, dir: string = process.cwd(), preExisting?: Set<string>): void {
   if (!isGitRepo(dir)) return; // never auto-init; skip silently when not a repo
   execFileSync("git", ["add", "-u"], { cwd: dir, stdio: "ignore" }); // tracked changes only
-  // Also stage the run's own generated acceptance tests (named-path add; never git add -A).
-  if (existsSync(join(dir, "tests", "generated"))) {
-    execFileSync("git", ["add", "--", "tests/generated"], { cwd: dir, stdio: "ignore" });
+  for (const p of untrackedFiles(dir)) {
+    if (!preExisting?.has(p)) {
+      execFileSync("git", ["add", "--", p], { cwd: dir, stdio: "ignore" });
+    }
   }
   try {
     execFileSync("git", ["diff", "--cached", "--quiet"], { cwd: dir, stdio: "ignore" });
@@ -190,13 +209,15 @@ export default function (pi: ExtensionAPI) {
   let runApiCalls = 0;
   let runTokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   let coverage: Array<{ criterion: number; proof: string }> = []; // Feature 1: per-run record_criterion proofs
+  let preExistingUntracked = new Set<string>(); // untracked files present when the run started
 
-  const startRun = (prompt: string) => {
-    ensureGitignore(); // guarantee .auto-agent/ is ignored wherever we run
+  const startRun = (prompt: string, dir: string = process.cwd()) => {
+    ensureGitignore(dir); // guarantee .auto-agent/ is ignored wherever we run
     runActive = true;
     runApiCalls = 0;
     runTokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
     coverage = []; // Feature 1: coverage never carries over between runs
+    preExistingUntracked = untrackedFiles(dir); // snapshot so auto-commit only stages what THIS run created
     // Runs never inherit state from a previous run; opt-in flags are set per run.
     commitEnabled = false;
     currentTask = "";
@@ -219,7 +240,7 @@ export default function (pi: ExtensionAPI) {
       ctx.ui.notify(`Usage: /${cmd} <task>`, "warning");
       return;
     }
-    startRun(protocol(task)); // resets commitEnabled/currentTask first
+    startRun(protocol(task), ctx.cwd ?? process.cwd()); // resets commitEnabled/currentTask first
     const noCommit = /(^|\s)--no-commit(\s|$)/.test(args);
     commitEnabled = commitByDefault ? !noCommit : /(^|\s)--commit(\s|$)/.test(args);
     currentTask = task;
@@ -237,7 +258,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerCommand("auto-agent-resume", {
     description: "Continue an interrupted auto-agent run from .auto-agent/plan.md",
-    handler: async () => startRun(resumePrompt()),
+    handler: async (_args, ctx) => startRun(resumePrompt(), ctx.cwd ?? process.cwd()),
   });
 
   // Feature 1 (Context + Loop Engineering): the LLM records each met acceptance
@@ -317,7 +338,7 @@ export default function (pi: ExtensionAPI) {
         diffSummary += " (possible scope creep)";
       }
     }
-    if (commitEnabled) ensureCleanCommit(currentTask);
+    if (commitEnabled) ensureCleanCommit(currentTask, dir, preExistingUntracked);
     const t = runTokens;
     const total = t.input + t.output + t.cacheRead + t.cacheWrite;
     ctx.ui.notify(

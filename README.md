@@ -24,8 +24,11 @@ Then in pi: `/reload`.
 ```
 
 Agent-generated acceptance tests are written to `tests/generated/` (named
-`*.test.mjs` so the standard `node --test` runner discovers them) and are staged by
-the auto-commit alongside tracked changes — a scoped add, never `git add -A`.
+`*.test.mjs` so the standard `node --test` runner discovers them). The auto-commit
+stages every file the run created — tracked changes plus any new file under any
+path (tests, source, skills) — by snapshotting untracked files at run start and
+committing only what appeared during the run. Files already untracked when the run
+started are never touched, and `git add -A` is never used.
 
 Commit behavior is **opt-in**: by default the extension never touches git. Pass
 `--commit` to stage *tracked* changes only (`git add -u`) and commit them on run
